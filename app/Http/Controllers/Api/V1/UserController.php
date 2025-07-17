@@ -8,6 +8,8 @@ use App\Http\Requests\Api\V1\StoreUserRequest;
 use App\Http\Requests\Api\V1\UpdateUserRequest;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Services\EmailService;
+use App\Services\UserService;
+use App\Traits\ApiResponseTrait;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -18,8 +20,12 @@ use Illuminate\Http\JsonResponse;
  */
 class UserController extends Controller
 {
+    use ApiResponseTrait;
 
-    public function __construct(private EmailService $emailService) {}
+    public function __construct(
+        private EmailService $emailService,
+        private UserService $userService
+    ) {}
 
     /**
      * Get list of users
@@ -64,13 +70,10 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $users = User::with(['emails'])
-            ->when($request->search, function ($query, $search) {
-                $query->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
-            })
-            ->paginate($request->per_page ?? 15);
+        $filters = $request->only(['search']);
+        $perPage = $request->get('per_page', 15);
+
+        $users = $this->userService->getUsersPaginated($filters, $perPage);
 
         return response()->json([
             'success' => true,
@@ -136,19 +139,7 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request): JsonResponse
     {
-        $user = User::create($request->validated());
-
-        // Add email addresses
-        if ($request->has('emails')) {
-            foreach ($request->emails as $index => $emailData) {
-                $user->addEmail(
-                    $emailData['email'],
-                    $emailData['is_primary'] ?? ($index === 0)
-                );
-            }
-        }
-
-        $user->load('emails');
+        $user = $this->userService->createUser($request->validated());
 
         return response()->json([
             'success' => true,
@@ -238,22 +229,7 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $user->update($request->validated());
-
-        // Update email addresses if provided
-        if ($request->has('emails')) {
-            $user->emails()->delete();
-
-            // Add new emails
-            foreach ($request->emails as $index => $emailData) {
-                $user->addEmail(
-                    $emailData['email'],
-                    $emailData['is_primary'] ?? ($index === 0)
-                );
-            }
-        }
-
-        $user->load('emails');
+        $user = $this->userService->updateUser($user, $request->validated());
 
         return response()->json([
             'success' => true,
@@ -279,7 +255,7 @@ class UserController extends Controller
      */
     public function destroy(User $user): JsonResponse
     {
-        $user->delete();
+        $this->userService->deleteUser($user);
 
         return response()->json([
             'success' => true,

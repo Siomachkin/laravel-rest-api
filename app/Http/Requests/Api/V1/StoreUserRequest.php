@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class StoreUserRequest extends FormRequest
+class StoreUserRequest extends BaseRequest
 {
     public function authorize(): bool
     {
@@ -14,13 +12,13 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
-            'password' => ['required', 'string', 'min:8'],
+            'first_name' => ['required', 'string', 'max:255', 'min:1'],
+            'last_name' => ['required', 'string', 'max:255', 'min:1'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[\+\d\s\-\(\)]+$/'],
+            'password' => ['required', 'string', 'min:8', 'max:255'],
             'emails' => ['required', 'array', 'min:1', 'max:20'],
-            'emails.*.email' => ['required', 'email', 'unique:user_emails,email'],
-            'emails.*.is_primary' => ['boolean'],
+            'emails.*.email' => ['required', 'email', 'max:255', 'unique:user_emails,email'],
+            'emails.*.is_primary' => ['sometimes', 'boolean'],
         ];
     }
 

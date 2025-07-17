@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class UpdateUserRequest extends FormRequest
+class UpdateUserRequest extends BaseRequest
 {
     public function authorize(): bool
     {
@@ -13,14 +11,29 @@ class UpdateUserRequest extends FormRequest
 
     public function rules(): array
     {
+        $user = $this->route('user');
+        
         return [
-            'first_name' => ['sometimes', 'string', 'max:255'],
-            'last_name' => ['sometimes', 'string', 'max:255'],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
-            'password' => ['sometimes', 'string', 'min:8'],
-            'emails' => ['sometimes', 'array', 'min:1'],
-            'emails.*.email' => ['required_with:emails', 'email', 'unique:user_emails,email'],
-            'emails.*.is_primary' => ['boolean'],
+            'first_name' => ['sometimes', 'string', 'max:255', 'min:1'],
+            'last_name' => ['sometimes', 'string', 'max:255', 'min:1'],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:20', 'regex:/^[\+\d\s\-\(\)]+$/'],
+            'password' => ['sometimes', 'string', 'min:8', 'max:255'],
+            'emails' => ['sometimes', 'array', 'min:1', 'max:20'],
+            'emails.*.email' => [
+                'required_with:emails', 
+                'email', 
+                'max:255',
+                function ($attribute, $value, $fail) use ($user) {
+                    $existingEmail = \App\Models\UserEmail::where('email', $value)
+                        ->where('user_id', '!=', $user->id)
+                        ->first();
+                    
+                    if ($existingEmail) {
+                        $fail('This email address is already taken.');
+                    }
+                }
+            ],
+            'emails.*.is_primary' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -8,6 +8,7 @@ use App\Models\UserEmail;
 use App\Http\Requests\Api\V1\StoreUserEmailRequest;
 use App\Http\Requests\Api\V1\UpdateUserEmailRequest;
 use App\Http\Resources\Api\V1\UserEmailResource;
+use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -17,6 +18,7 @@ use Illuminate\Http\JsonResponse;
  */
 class UserEmailController extends Controller
 {
+    public function __construct(private UserService $userService) {}
     /**
      * Get user's email addresses
      *
@@ -51,7 +53,7 @@ class UserEmailController extends Controller
      */
     public function index(User $user): JsonResponse
     {
-        $emails = $user->emails()->orderBy('is_primary', 'desc')->get();
+        $emails = $this->userService->getUserEmails($user);
 
         return response()->json([
             'success' => true,
@@ -96,7 +98,8 @@ class UserEmailController extends Controller
      */
     public function store(StoreUserEmailRequest $request, User $user): JsonResponse
     {
-        $email = $user->addEmail(
+        $email = $this->userService->addEmailToUser(
+            $user,
             $request->email,
             $request->is_primary ?? false
         );
@@ -137,7 +140,6 @@ class UserEmailController extends Controller
      */
     public function update(UpdateUserEmailRequest $request, User $user, UserEmail $email): JsonResponse
     {
-        // Check if email belongs to this user
         if ($email->user_id !== $user->id) {
             return response()->json([
                 'success' => false,
@@ -145,11 +147,7 @@ class UserEmailController extends Controller
             ], 404);
         }
 
-        if ($request->has('is_primary') && $request->is_primary) {
-            $user->setPrimaryEmail($email->email);
-        }
-
-        $email->update($request->validated());
+        $email = $this->userService->updateUserEmail($user, $email, $request->validated());
 
         return response()->json([
             'success' => true,
@@ -189,19 +187,19 @@ class UserEmailController extends Controller
             ], 404);
         }
 
-        if ($email->is_primary && $user->emails()->count() > 1) {
+        try {
+            $this->userService->deleteUserEmail($user, $email);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Email address deleted successfully'
+            ]);
+        } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot delete primary email address. Set another email as primary first.'
+                'message' => $e->getMessage()
             ], 400);
         }
-
-        $email->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Email address deleted successfully'
-        ]);
     }
 
     /**
@@ -238,12 +236,12 @@ class UserEmailController extends Controller
             ], 404);
         }
 
-        $user->setPrimaryEmail($email->email);
+        $email = $this->userService->setPrimaryEmail($user, $email);
 
         return response()->json([
             'success' => true,
             'message' => 'Primary email address updated successfully',
-            'data' => new UserEmailResource($email->fresh())
+            'data' => new UserEmailResource($email)
         ]);
     }
 }

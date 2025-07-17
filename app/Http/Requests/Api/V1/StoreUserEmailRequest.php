@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class StoreUserEmailRequest extends FormRequest
+class StoreUserEmailRequest extends BaseRequest
 {
     public function authorize(): bool
     {
@@ -14,8 +12,8 @@ class StoreUserEmailRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'unique:user_emails,email'],
-            'is_primary' => ['boolean'],
+            'email' => ['required', 'email', 'max:255', 'unique:user_emails,email'],
+            'is_primary' => ['sometimes', 'boolean'],
         ];
     }
 

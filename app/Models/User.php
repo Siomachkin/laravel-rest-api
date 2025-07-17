@@ -37,9 +37,9 @@ class User extends Authenticatable
         return $this->hasMany(UserEmail::class);
     }
 
-    public function primaryEmail(): HasMany
+    public function primaryEmail()
     {
-        return $this->emails()->where('is_primary', true);
+        return $this->hasOne(UserEmail::class)->where('is_primary', true);
     }
 
     // Accessors

@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
-use Illuminate\Foundation\Http\FormRequest;
-
-class UpdateUserEmailRequest extends FormRequest
+class UpdateUserEmailRequest extends BaseRequest
 {
     public function authorize(): bool
     {
@@ -16,8 +14,8 @@ class UpdateUserEmailRequest extends FormRequest
         $emailId = $this->route('email')->id ?? null;
 
         return [
-            'email' => ['sometimes', 'email', 'unique:user_emails,email,' . $emailId],
-            'is_primary' => ['boolean'],
+            'email' => ['sometimes', 'email', 'max:255', 'unique:user_emails,email,' . $emailId],
+            'is_primary' => ['sometimes', 'boolean'],
         ];
     }
 
